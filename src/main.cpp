@@ -424,7 +424,7 @@ void loop() {
       tone(gc::pin_signal, note::as7, 125);   // 1000ms / 8 = 125 (eighth note)
       delay(125);
       rtcEnable();
-      break;
+      [[fallthrough]];
     case State::run:
       if (is_second_over) {                                                // is_second_over is switched by ISR of RTC
         is_second_over = false;
