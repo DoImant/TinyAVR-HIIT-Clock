@@ -9,17 +9,18 @@
 /// \date 2025-05-17
 /// \version 1.0
 ///
-///                 Controller TinyAVR 1614
-///                          -----
-///                    VCC -|     |- GND
-///      Buzzer Pin ~    0 -|     |- NC
-///      Encoder Pin CW  1 -|     |- NC
-///      Encoder Pin CCW 2 -|     |- NC
-///                     NC -|     |- NC
-///                  TOSC1 -|     |- SCL Oled
-///                  TOSC2 -|     |- SDA Oled
-///                          -----
-///
+///                      Controller TinyAVR 1614
+///                               -----
+///                    VCC      -|     |- GND
+///               Buzzer 0~  PA4-|     |-PA3 10~ NC
+///          Encoder  CW 1~  PA5-|     |-PA2  9* NC
+///          Encoder CCW 2*  PA6-|     |-PA1  8  NC
+///          Encoder Btn 3   PA7-|     |-PA0 11  UPDI
+///        Crystal TOSC1 4   PB3-|     |-PB0  7~ SCL Oled
+///        Crystal TOSC2 5*~ PB2-|     |-PB1  6~ SDA Oled
+///                               -----
+///                   ~ = PWM, * = Async. Interrupt
+///           
 //////////////////////////////////////////////////////////////////////////////
 
 #include <Arduino.h>
