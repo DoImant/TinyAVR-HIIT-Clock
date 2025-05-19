@@ -20,7 +20,7 @@
 ///        Crystal TOSC2 5*~ PB2-|     |-PB1  6~ SDA Oled
 ///                               -----
 ///                   ~ = PWM, * = Async. Interrupt
-///           
+///
 //////////////////////////////////////////////////////////////////////////////
 
 #include <Arduino.h>
@@ -406,7 +406,6 @@ void loop() {
     wait_for_sleep.start();
     displayTime(u8g2, rows, time, marker);
   }
-
   if (is_signal) { is_signal = signal(gc::melody); }   // plays a melody as long as signal returns true
 
   switch (state) {
@@ -427,19 +426,16 @@ void loop() {
       rtcEnable();
       [[fallthrough]];
     case State::run:
-      if (is_second_over) {                                                // is_second_over is switched by ISR of RTC
+      if (is_second_over) {   // is_second_over is switched by ISR of RTC
         is_second_over = false;
-        if (time[idx].sumSeconds() == 1) { is_signal = signal.reset(); }   // signal.reset() returns true = signal on
-        if (time[idx].isZero()) {                                          // Timer is zero -> switch to the next timer
-          time[idx] = save_time[idx];                                      // recover time value for the next run.
+        !time[idx].minutes() ? (bool)--time[idx].seconds : --time[idx].seconds && --time[idx].minutes;
+        displayTime(u8g2, rows, time, marker);
+        if (time[idx].isZero()) {       // Timer is zero -> switch to the next timer
+          is_signal = signal.reset();   // signal.reset() returns true = signal on
+          time[idx] = save_time[idx];   // recover time value for the next run.
           decltype(idx) tmp_idx = (idx + 1) % 2;
           idx = (!save_time[tmp_idx].isZero()) ? tmp_idx : idx;
-        } else {
-          // do count down
-          !time[idx].minutes() ? static_cast<bool>(--time[idx].seconds) : --time[idx].seconds && --time[idx].minutes;
-        }
-        // !time[idx].minutes() ? (bool)--time[idx].seconds : --time[idx].seconds && --time[idx].minutes;
-        displayTime(u8g2, rows, time, marker);
+        } 
       }
       break;
     case State::input:
