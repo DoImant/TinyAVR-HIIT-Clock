@@ -105,6 +105,9 @@ constexpr unsigned int d8 {4699};
 constexpr unsigned int ds8 {4978};
 }   // namespace note
 
+
+using MillisType = decltype(millis());
+
 //////////////////////////////////////////////////////////////////////////////
 /// \brief Structure for storing a note value (pitch + duration)
 ///        To calculate the note duration, take one second divided by the note type.
@@ -113,7 +116,7 @@ constexpr unsigned int ds8 {4978};
 //////////////////////////////////////////////////////////////////////////////
 struct Note {
   const unsigned int pitch;
-  const unsigned int duration;
+  const MillisType duration;
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -160,6 +163,6 @@ private:
   bool is_tone_on {false};
   bool has_finnished {false};
   size_t idx {0};
-  unsigned int play_duration;
-  unsigned long timestamp;
+  MillisType play_duration;  // max. 65535
+  MillisType timestamp;
 };

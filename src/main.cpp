@@ -49,12 +49,21 @@ constexpr unsigned long time_until_sleep {60 * 1000 * 30};   // 30 Seconds
 // Use a different note if the buzzer has a different resonance frequency to achieve maximum volume.
 // Note definitions are placed in ToneSequence.hpp
 // as7 has 3729 Hz
+// constexpr Note melody[] {
+//     {note::as7, 1000 / 4 },
+//     {0,         1000 / 20},
+//     {note::as7, 1000 / 8 },
+//     {0,         1000 / 20},
+//     {note::as7, 1000 / 4 },
+// };
+
+// Used buzzer as a resonance frequency from 2700Hz +- 300Hz
 constexpr Note melody[] {
-    {note::as7, 1000 / 4 },
-    {0,         1000 / 20},
-    {note::as7, 1000 / 8 },
-    {0,         1000 / 20},
-    {note::as7, 1000 / 4 },
+    {note::f7, 1000 / 4 },
+    {0,        1000 / 20},
+    {note::f7, 1000 / 8 },
+    {0,        1000 / 20},
+    {note::f7, 1000 / 4 },
 };
 }   // namespace gc
 
@@ -67,12 +76,13 @@ constexpr Note melody[] {
 ///
 //////////////////////////////////////////////////////////////////////////////
 class NbDelay {
+  using MillisType = decltype(millis());
 public:
   void start() { timestamp = millis(); }
-  boolean operator()(const unsigned long duration) { return millis() - timestamp >= duration; }
+  boolean operator()(const MillisType duration) { return millis() - timestamp >= duration; }
 
 private:
-  unsigned long timestamp {0};
+  MillisType timestamp {0};
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -80,7 +90,7 @@ private:
 ///
 //////////////////////////////////////////////////////////////////////////////
 enum class State : byte { input, check, run, alarm };
-
+  
 //////////////////////////////////////////////////////////////////////////////
 /// \brief  Structure for representing minutes and seconds with the help
 ///         of SimpleCounter objects.
@@ -119,13 +129,13 @@ struct Row {
 //
 // Global variables
 //
-Row rows[] {
+Row rows[] = {
     // logisoso26_tn - 16 Width 32 Height
     {{28, 28}, "00:00"},
     {{28, 60}, "00:00"},
 };
 
-Timer time[2] {
+Timer time[2] = {
     {60, 60},
     {60, 60}
 };
@@ -137,7 +147,7 @@ RotaryEncoder encoder {gc::pin_in1, gc::pin_in2, RotaryEncoder::LatchMode::FOUR3
 ToneSequence<gc::pin_signal> signal;
 NbDelay wait_for_sleep;
 
-bool is_second_over {false};
+auto is_second_over {false};
 //
 // Functions
 //
@@ -147,10 +157,9 @@ bool is_second_over {false};
 ///
 //////////////////////////////////////////////////////////////////////////////
 void rtcInit() {
-  uint8_t temp;
   // Initialize 32.768kHz Oscillator:
   // Disable oscillator:
-  temp = CLKCTRL.XOSC32KCTRLA & ~CLKCTRL_ENABLE_bm;
+  uint8_t temp = CLKCTRL.XOSC32KCTRLA & ~CLKCTRL_ENABLE_bm;
   // Enable writing to protected register
   CPU_CCP = CCP_IOREG_gc;
   CLKCTRL.XOSC32KCTRLA = temp;
@@ -207,7 +216,7 @@ ISR(RTC_PIT_vect) {   // Called every second
 /// \param max    Upper value of button presses. Once this is reached, it is reset to zero.
 /// \return byte  value
 //////////////////////////////////////////////////////////////////////////////
-byte askButton(Btn::ButtonSL& b, byte value, byte max) {
+byte askButton(Btn::ButtonSL& b, auto value, auto max) {
   switch (b.tick()) {
     case Btn::ButtonState::shortPressed: ((value + 1) > max) ? value = 1 : ++value; break;
     case Btn::ButtonState::longPressed: value = 0; break;
@@ -226,10 +235,10 @@ byte askButton(Btn::ButtonSL& b, byte value, byte max) {
 /// \return true  when the encoder has been actuated.
 /// \return false When the encoder has not been actuated.
 //////////////////////////////////////////////////////////////////////////////
-template <size_t N> bool setTime(RotaryEncoder& enc, Timer (&t)[N], byte marker) {
+template <size_t N> bool setTime(RotaryEncoder& enc, Timer (&t)[N], auto marker) {
   if (!marker) { return false; }
 
-  byte idx = (marker < 3) ? 0 : 1;   // determine timer index from marker value. Two marker values per timer.
+  decltype(marker) idx = (marker < 3) ? 0 : 1;   // determine timer index from marker value. Two marker values per timer.
   enc.tick();
   switch (enc.getDirection()) {
     case RotaryEncoder::Direction::CLOCKWISE:
@@ -260,7 +269,7 @@ template <size_t N> bool setTime(RotaryEncoder& enc, Timer (&t)[N], byte marker)
 /// \param marker to determine the screen position for the marker line
 /// \return Pos   Position of marker line on the screen
 //////////////////////////////////////////////////////////////////////////////
-inline Pos markerPos(const Row* r, int width, byte marker) {
+inline Pos markerPos(const Row* r, auto width, auto marker) {
   switch (marker) {
     case 1: return {r[0].pos.x + width * 3, r[0].pos.y + 1};   // Seconds line 1
     case 2: return {r[0].pos.x, r[0].pos.y + 1};               // Minutes line 1
@@ -273,9 +282,11 @@ inline Pos markerPos(const Row* r, int width, byte marker) {
 //////////////////////////////////////////////////////////////////////////////
 /// \brief  Display all data on the screen
 ///
-/// \tparam N      Number of Elements in the given arrays (row and time objekts)
-/// \param dp      Reference to display object
-/// \param marker  indicator for actual choosen timer object
+/// \tparam N       Number of Elements in the given arrays (row and time objekts)
+/// \param dp       Reference to display object
+/// \param r        Reference to row object array
+/// \param t        Reference to timer object array
+/// \param marker   indicator for actual choosen timer object
 //////////////////////////////////////////////////////////////////////////////
 template <size_t N> void displayTime(Display& dp, Row (&r)[N], const Timer (&t)[N], byte marker = 0) {
   sprintf(r[0].text, "%02d:%02d", t[0].minutes(), t[0].seconds());
@@ -285,8 +296,8 @@ template <size_t N> void displayTime(Display& dp, Row (&r)[N], const Timer (&t)[
     dp.drawStr(r[0].pos.x, r[0].pos.y, r[0].text);
     dp.drawStr(r[1].pos.x, r[1].pos.y, r[1].text);
     if (marker) {
-      int width {dp.getMaxCharWidth()};
-      Pos mPos = markerPos(r, width, marker);
+      auto width {dp.getMaxCharWidth()};
+      auto mPos = markerPos(r, width, marker);
       dp.drawHLine(mPos.x, mPos.y, width * 2);
     }
   } while (dp.nextPage());
@@ -299,7 +310,7 @@ template <size_t N> void displayTime(Display& dp, Row (&r)[N], const Timer (&t)[
 /// \param indicator  Indicator of whether data has ever been stored.
 /// \param t          Timer data to be read.
 //////////////////////////////////////////////////////////////////////////////
-void readEEPROM(int eeAddr, byte indicator, Timer& t) {
+void readEEPROM(auto eeAddr, auto indicator, Timer& t) {
   if (EEPROM.read(eeAddr) != indicator) {   // Executed if no data has ever been saved.
     EEPROM.put(eeAddr, indicator);
     EEPROM.put(eeAddr + 1, t);
@@ -315,7 +326,7 @@ void readEEPROM(int eeAddr, byte indicator, Timer& t) {
 /// \param indicator    Indicator of whether data has ever been stored.
 /// \param t            Timer data to be saved.
 //////////////////////////////////////////////////////////////////////////////
-void writeEEPROM(int eeAddr, byte indicator, Timer& t) {
+void writeEEPROM(auto eeAddr, auto indicator, Timer& t) {
   EEPROM.put(eeAddr, indicator);
   EEPROM.put(eeAddr + 1, t);   // eeAddr + 1 -> don't override indicator char
 }
@@ -331,7 +342,7 @@ void intWakeup() { detachInterrupt(gc::pin_btn); }
 ///
 /// \param wakeupPin     Number of the wake up interrupt pin
 //////////////////////////////////////////////////////////////////////////////
-void powerDown(uint8_t wakeupPin, Display& dp) {
+void powerDown(auto wakeupPin, Display& dp) {
   // go into deep Sleep
   attachInterrupt(digitalPinToInterrupt(wakeupPin), intWakeup, LOW);
   dp.setPowerSave(true);
@@ -372,12 +383,12 @@ void setup() {
 }
 
 void loop() {
-  constexpr byte max_marker {4};       // maximum value vor marker. the value 0 indicates a long button press.
-  static byte marker {1};              // Indicator for which time is to be set (minute/second per timer).
-  static Timer save_time[2];           // Timer array / only two timers are possible.
-  static size_t idx {0};               // Index for timer array.
-  static State state {State::input};   // initial state for the state machine
-  static bool is_signal {false};       // Flag for whether an acoustic signal should be emitted or not.
+  constexpr byte max_marker {4};      // maximum value vor marker. The value 0 indicates a long button press.
+  static byte marker {1};             // Indicator for which time is to be set (minute/second per timer).
+  static Timer save_time[2];          // Timer array / only two timers are possible.
+  static size_t idx {0};              // Index for timer array.
+  static auto state {State::input};   // initial state for the state machine
+  static auto is_signal {false};      // Flag for whether an acoustic signal should be emitted or not.
 
   byte new_marker = askButton(btn, marker, max_marker);
   // new_marker != 0 then Button short pressed. If clock is running stop it.
@@ -421,21 +432,22 @@ void loop() {
       save_time[1] = time[1];
       if (time[0].isZero()) { idx = 1; }
       state = State::run;
-      tone(gc::pin_signal, note::as7, 125);   // 1000ms / 8 = 125 (eighth note)
+      // tone(gc::pin_signal, note::as7, 125);   // 1000ms / 8 = 125 (eighth note)
+      tone(gc::pin_signal, note::f7, 125);   // 1000ms / 8 = 125 (eighth note)
       delay(125);
       rtcEnable();
       [[fallthrough]];
     case State::run:
       if (is_second_over) {   // is_second_over is switched by ISR of RTC
         is_second_over = false;
-        !time[idx].minutes() ? (bool)--time[idx].seconds : --time[idx].seconds && --time[idx].minutes;
+        !time[idx].minutes() ? static_cast<bool>(--time[idx].seconds) : --time[idx].seconds && --time[idx].minutes;
         displayTime(u8g2, rows, time, marker);
         if (time[idx].isZero()) {       // Timer is zero -> switch to the next timer
           is_signal = signal.reset();   // signal.reset() returns true = signal on
           time[idx] = save_time[idx];   // recover time value for the next run.
           decltype(idx) tmp_idx = (idx + 1) % 2;
           idx = (!save_time[tmp_idx].isZero()) ? tmp_idx : idx;
-        } 
+        }
       }
       break;
     case State::input:
